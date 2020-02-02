@@ -523,7 +523,7 @@ void recebePacote(char *topic, byte *payload, unsigned int length)
       MQTT.publish(TOPIC_PUBLISHtv, "{\"estado\":\"ligado\"}");
       estadoAnterior[4] = 1;
     }
-    else
+    if (msg == "{\"estado\":\"desligado\"}")
     {
       irsendTV.sendRaw(tvon, sizeof(tvon) / sizeof(tvon[0]), frequencia);
       Serial.println("tv desligada");
