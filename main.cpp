@@ -9,6 +9,7 @@
 #include <WiFiUdp.h>
 #include <SPI.h>
 #include <NTPClient.h>
+#include "esp_system.h"
 
 /*userID = "5e31f245d2ca69456015048d";
 luz1ID = "5e31f27bd2ca69456015048f";
@@ -44,8 +45,8 @@ NTPClient ntpClient(
 
 //--------FIM DA HORA-------//
 
-const char *SSID = "Pex_Movel2.4";
-const char *PASSWORD = "pexgeral@2020";
+const char *SSID = "Gabriel Camboim";
+const char *PASSWORD = "99252650";
 WiFiClient wifiClient;
 
 const char *BROKER_MQTT = "18.231.176.98";
@@ -105,6 +106,31 @@ unsigned int volumemais[] = {2650, 900, 450, 900, 450, 450, 400, 450, 1350, 1350
 unsigned int volumemenos[] = {2650, 900, 400, 900, 450, 450, 450, 450, 1350, 1300, 400, 500, 400, 450, 450, 450, 450, 450, 450, 450, 450, 400, 450, 450, 450, 450, 400, 450, 450, 450, 900, 900, 400, 450, 450, 450, 850};
 unsigned int tvon[] = {2650, 900, 400, 900, 450, 450, 450, 450, 400, 950, 850, 450, 450, 450, 400, 450, 450, 450, 450, 450, 400, 500, 400, 450, 450, 450, 450, 450, 400, 450, 450, 450, 450, 450, 900, 400, 450, 900, 450, 450, 400}; // UNKNOWN 9EFD9986
 
+///////////////////WATCHDOG////////////////////////////
+
+hw_timer_t *timer = NULL;
+
+//função que o temporizador irá chamar, para reiniciar o ESP32
+void IRAM_ATTR resetModule()
+{
+  ets_printf("(watchdog) reiniciar\n"); //imprime no log
+  ESP.restart();                        //reinicia o chip
+}
+
+//função que o configura o temporizador
+void configureWatchdog()
+{
+  timer = timerBegin(0, 80, true); //timerID 0, div 80
+  //timer, callback, interrupção de borda
+  timerAttachInterrupt(timer, &resetModule, true);
+  //timer, tempo (us), repetição
+  timerAlarmWrite(timer, 5000000, true);
+  timerAlarmEnable(timer); //habilita a interrupção //enable interrupt
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+
+void confereWifi(void *params);
 void feedback(void *param);
 void mantemConexoesTask(void *param);
 void conectaWifi();
@@ -139,6 +165,7 @@ void setup()
   delay(500);
   digitalWrite(2, LOW);
 
+  configureWatchdog();
   conectaWifi();
 
   MQTT.setServer(BROKER_MQTT, BROKER_PORT);
@@ -207,6 +234,9 @@ void setup()
 
 void loop()
 {
+  //reseta o temporizador (alimenta o watchdog)
+  timerWrite(timer, 0);
+
   ArduinoOTA.handle();
   MQTT.loop();
 }
@@ -216,6 +246,7 @@ void mantemConexoesTask(void *param)
   while (1)
   {
     conectaWifi();
+
     if (!MQTT.connected())
     {
       conectaMQTT();
@@ -275,6 +306,7 @@ void conectaWifi()
   WiFi.begin(SSID, PASSWORD);
   while (WiFi.status() != WL_CONNECTED)
   {
+
     vTaskDelay(100);
     Serial.print(".");
   }
